@@ -46,6 +46,7 @@ def show_popup_message(merged_error_codes):
 def run_main_thread(initial_row, browser, copy_count, full_automation):
     # redeemed_codes = set()
     merged_error_codes = collections.defaultdict(set)
+    more_codes = True
     if full_automation.get():
         while True:
             initial_row, copied_codes, more_codes, error_codes = main(
@@ -55,30 +56,30 @@ def run_main_thread(initial_row, browser, copy_count, full_automation):
             if not more_codes:
                 break
     else:
-        while True:
-            keyboard.wait("ctrl+space")
-            initial_row, copied_codes, more_codes, new_redeemed_codes = main(
-                initial_row, browser, copy_count, full_automation)
-            merged_error_codes.union(new_redeemed_codes)
-            if not more_codes:
-                break
-
-        # Initial automatic run for the first 10 codes
-        # first_group = True
-        # while more_codes:
-        #     if not first_group:
-        #         # Wait for Ctrl+Space before copying each group of 10 codes
-        #         keyboard.wait("ctrl+space")
-
-        #     initial_row, copied_codes, more_codes, error_codes = main(
-        #         initial_row, browser, 10, full_automation.get())
-        #     for key in set(merged_error_codes.keys()) | set(error_codes.keys()):
-        #         merged_error_codes[key] = merged_error_codes[key] | error_codes[key]
-
+        # while True:
+        #     keyboard.wait("ctrl+space")
+        #     initial_row, copied_codes, more_codes, new_redeemed_codes = main(
+        #         initial_row, browser, copy_count, full_automation)
+        #     merged_error_codes.union(new_redeemed_codes)
         #     if not more_codes:
         #         break
 
-        #     first_group = False
+        # Initial automatic run for the first 10 codes
+        first_group = True
+        while more_codes:
+            if not first_group:
+                # Wait for Ctrl+Space before copying each group of 10 codes
+                keyboard.wait("ctrl+space")
+
+            initial_row, copied_codes, more_codes, error_codes = main(
+                initial_row, browser, 10, full_automation)
+            for key in set(merged_error_codes.keys()) | set(error_codes.keys()):
+                merged_error_codes[key] = merged_error_codes[key] | error_codes[key]
+
+            if not more_codes:
+                break
+
+            first_group = False
 
     show_popup_message(merged_error_codes)
     if len(merged_error_codes) == 0:
@@ -173,8 +174,11 @@ def main(initial_row, browser, copy_count, full_automation):
                         clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
                             (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
                         clear_table_button.click()
+                        # redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
+                        #     (By.CSS_SELECTOR, 'button[data-testid="button-redeem"]')))
+                        # redeem_button.click()
                 except TimeoutException:
-                    print("Timed out waiting for the clear table button.")
+                    print("Timed out waiting for the clear table/redeem button.")
 
         except TimeoutException:
             print("Timed out waiting for the elements to load.")
@@ -197,9 +201,12 @@ def main(initial_row, browser, copy_count, full_automation):
                 error["Invalid Code"].add(redeemed_code)
 
         if lastOne == True:
-            clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
-                (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
-            clear_table_button.click()
+            redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
+                (By.CSS_SELECTOR, 'button[data-testid="button-redeem"]')))
+            redeem_button.click()
+            # clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
+            #     (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
+            # clear_table_button.click()
     # return initial_row, copied_codes, more_codes, new_redeemed_codes
     return initial_row, copied_codes, more_codes, error
 
