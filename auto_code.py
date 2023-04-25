@@ -12,6 +12,14 @@ import collections
 from tkinter import filedialog
 from selenium.common.exceptions import TimeoutException
 import tkinter.messagebox as messagebox
+import os
+import sys
+
+continue_event = threading.Event()
+
+
+def on_continue_click():
+    continue_event.set()
 
 
 def read_excel_file(file_path):
@@ -43,6 +51,34 @@ def show_popup_message(merged_error_codes):
     messagebox.showinfo("Code Status", message)
 
 
+def on_close(root):
+    if messagebox.askokcancel("Quit", "Do you really want to quit?"):
+        root.destroy()
+
+
+def start_main_thread(initial_row, browser, copy_count, full_automation, start_button):
+    # Disable the button and change its color to grey
+    # start_button.config(state="disabled", bg="grey")
+    start_button.config(state="disabled")
+    # Create and start the thread
+    thread = threading.Thread(target=run_main_thread, args=(
+        initial_row, browser, copy_count, full_automation))
+    thread.start()
+
+    # Check the thread's status and update the button state accordingly
+    check_thread_status(start_button, thread)
+
+
+def check_thread_status(start_button, thread):
+    if thread.is_alive():
+        # If the thread is still running, check its status again after 100 milliseconds
+        start_button.after(
+            100, lambda: check_thread_status(start_button, thread))
+    else:
+        # If the thread has finished, re-enable the button and reset its color
+        start_button.config(state="normal", bg="SystemButtonFace")
+
+
 def run_main_thread(initial_row, browser, copy_count, full_automation):
     # redeemed_codes = set()
     merged_error_codes = collections.defaultdict(set)
@@ -56,20 +92,13 @@ def run_main_thread(initial_row, browser, copy_count, full_automation):
             if not more_codes:
                 break
     else:
-        # while True:
-        #     keyboard.wait("ctrl+space")
-        #     initial_row, copied_codes, more_codes, new_redeemed_codes = main(
-        #         initial_row, browser, copy_count, full_automation)
-        #     merged_error_codes.union(new_redeemed_codes)
-        #     if not more_codes:
-        #         break
-
-        # Initial automatic run for the first 10 codes
         first_group = True
         while more_codes:
             if not first_group:
                 # Wait for Ctrl+Space before copying each group of 10 codes
-                keyboard.wait("ctrl+space")
+                # keyboard.wait("ctrl+space")
+                continue_event.wait()
+                continue_event.clear()
 
             initial_row, copied_codes, more_codes, error_codes = main(
                 initial_row, browser, 10, full_automation)
@@ -103,7 +132,18 @@ def select_file():
 
 def start_app():
     root = tk.Tk()
-    root.title("Code Copier")
+    root.title("autoRedeem-WebVersion")
+    # root.iconbitmap('Mimikyu.ico')
+    root.protocol("WM_DELETE_WINDOW", lambda: on_close(root))
+
+    if getattr(sys, 'frozen', False):
+        script_dir = sys._MEIPASS  # Use the bundled app directory if running in the executable
+    else:
+        # Use the script directory if running in the Python script
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+
+    icon_path = os.path.join(script_dir, 'Mimikyu.ico')
+    root.iconbitmap(icon_path)
 
     global file_path_var
     file_path_var = tk.StringVar()
@@ -119,10 +159,27 @@ def start_app():
     tk.Checkbutton(root, text="Full Automation",
                    variable=full_automation).grid(row=1, column=1, pady=5)
 
-    # start_copying = threading.Event()
-    tk.Button(root, text="Start Script", command=lambda: threading.Thread(target=run_main_thread, args=(
-        initial_row, browser, copy_count, full_automation)).start()).grid(row=2, column=1, pady=10)
+    continue_var = tk.BooleanVar()
+    continue_var.set(False)
 
+    # start_copying = threading.Event()
+    # tk.Button(root, text="Start Script", command=lambda: threading.Thread(target=run_main_thread, args=(
+    #     initial_row, browser, copy_count, full_automation)).start()).grid(row=2, column=1, pady=10)
+    start_button = tk.Button(root, text="Start Script", command=lambda: start_main_thread(
+        initial_row, browser, copy_count, full_automation, start_button))
+
+    start_button.grid(row=2, column=1, pady=10)
+    continue_button = tk.Button(
+        root, text="Continue", command=on_continue_click)
+    continue_button.grid(row=4, column=1, pady=10)
+
+    if not full_automation:
+        continue_button.config(state="disabled")
+    # Create the text label
+    status_label = tk.Label(root, text="版权所有: @闲鱼: 巨糕冷")
+
+    # Place the label to the right of the start button
+    status_label.grid(row=6, column=1, pady=10)
     root.mainloop()
 
 
@@ -171,12 +228,17 @@ def main(initial_row, browser, copy_count, full_automation):
                         lastOne = True
                     # if (copied_codes % 10 == 0) or (not next_cell_value):
                     if (copied_codes % 10 == 0):
+                        # clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
+                        #     (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
+                        # clear_table_button.click()
+                        redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
+                            (By.CSS_SELECTOR, 'button[data-testid="button-redeem"]')))
+                        redeem_button.click()
+                        time.sleep(2)
                         clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
                             (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
                         clear_table_button.click()
-                        # redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
-                        #     (By.CSS_SELECTOR, 'button[data-testid="button-redeem"]')))
-                        # redeem_button.click()
+
                 except TimeoutException:
                     print("Timed out waiting for the clear table/redeem button.")
 
@@ -204,9 +266,10 @@ def main(initial_row, browser, copy_count, full_automation):
             redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
                 (By.CSS_SELECTOR, 'button[data-testid="button-redeem"]')))
             redeem_button.click()
-            # clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
-            #     (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
-            # clear_table_button.click()
+            time.sleep(2)
+            clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
+                (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
+            clear_table_button.click()
     # return initial_row, copied_codes, more_codes, new_redeemed_codes
     return initial_row, copied_codes, more_codes, error
 
