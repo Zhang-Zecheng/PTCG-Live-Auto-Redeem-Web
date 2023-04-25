@@ -157,11 +157,24 @@ def main(initial_row, browser, copy_count, full_automation):
             time.sleep(3)
             initial_row += 1
             copied_codes += 1
-
-            if full_automation.get() and (copied_codes % 10 == 0):
-                clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
-                clear_table_button.click()
+            lastOne = False
+            # if full_automation.get() and (copied_codes % 10 == 0 or not sheet.cell(row=initial_row+1, column=1).value):
+            #     clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
+            #         (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
+            #     clear_table_button.click()
+            if full_automation.get():
+                try:
+                    next_cell_value = sheet.cell(
+                        row=initial_row, column=1).value
+                    if not next_cell_value:
+                        lastOne = True
+                    # if (copied_codes % 10 == 0) or (not next_cell_value):
+                    if (copied_codes % 10 == 0):
+                        clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
+                            (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
+                        clear_table_button.click()
+                except TimeoutException:
+                    print("Timed out waiting for the clear table button.")
 
         except TimeoutException:
             print("Timed out waiting for the elements to load.")
@@ -182,6 +195,11 @@ def main(initial_row, browser, copy_count, full_automation):
             if "Invalid Code" in status_text:
                 redeemed_code = code_element.text.strip()
                 error["Invalid Code"].add(redeemed_code)
+
+        if lastOne == True:
+            clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
+                (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
+            clear_table_button.click()
     # return initial_row, copied_codes, more_codes, new_redeemed_codes
     return initial_row, copied_codes, more_codes, error
 
