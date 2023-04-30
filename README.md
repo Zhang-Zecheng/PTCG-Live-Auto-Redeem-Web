@@ -1,6 +1,6 @@
 # PTCG Live Auto Redeem Web
 
-This is a Python script for automatically redeeming codes in PTCG Live from website(https://redeem.tcg.pokemon.com/en-us/).
+This is a Python script for automatically redeeming codes in PTCG Live from website (https://redeem.tcg.pokemon.com/en-us/).
 
 ## Dependencies
 
