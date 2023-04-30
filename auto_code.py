@@ -56,15 +56,16 @@ def on_close(root):
         root.destroy()
 
 
-def start_main_thread(initial_row, browser, copy_count, full_automation, start_button, continue_button):
+def start_main_thread(initial_row, browser, copy_count, full_automation, start_button, continue_button, sleep_time_var):
     # user click start：Disable the button and change its color to grey
     start_button.config(state="disabled")
+    sleep_time = float(sleep_time_var.get())
     # if in full automation mode, change continue button to grey so that users can not click
     if full_automation.get():
         continue_button.config(state="disabled")
     # Create and start the thread
     thread = threading.Thread(target=run_main_thread, args=(
-        initial_row, browser, copy_count, full_automation))
+        initial_row, browser, copy_count, full_automation, sleep_time))
     thread.start()
 
     # Check the thread's status and update the button state accordingly
@@ -81,14 +82,14 @@ def check_thread_status(start_button, thread):
         start_button.config(state="normal", bg="SystemButtonFace")
 
 
-def run_main_thread(initial_row, browser, copy_count, full_automation):
+def run_main_thread(initial_row, browser, copy_count, full_automation, sleep_time):
     # redeemed_codes = set()
     merged_error_codes = collections.defaultdict(set)
     more_codes = True
     if full_automation.get():
         while True:
             initial_row, copied_codes, more_codes, error_codes = main(
-                initial_row, browser, copy_count, full_automation)
+                initial_row, browser, copy_count, full_automation, sleep_time)
             for key in set(merged_error_codes.keys()) | set(error_codes.keys()):
                 merged_error_codes[key] = merged_error_codes[key] | error_codes[key]
             if not more_codes:
@@ -103,7 +104,7 @@ def run_main_thread(initial_row, browser, copy_count, full_automation):
                 continue_event.clear()
 
             initial_row, copied_codes, more_codes, error_codes = main(
-                initial_row, browser, 10, full_automation)
+                initial_row, browser, 10, full_automation, sleep_time)
             for key in set(merged_error_codes.keys()) | set(error_codes.keys()):
                 merged_error_codes[key] = merged_error_codes[key] | error_codes[key]
 
@@ -135,7 +136,6 @@ def select_file():
 def start_app():
     root = tk.Tk()
     root.title("autoRedeem-WebVersion")
-    # root.iconbitmap('Mimikyu.ico')
     root.protocol("WM_DELETE_WINDOW", lambda: on_close(root))
 
     if getattr(sys, 'frozen', False):
@@ -159,35 +159,45 @@ def start_app():
 
     full_automation = tk.BooleanVar()
     tk.Checkbutton(root, text="Full Automation",
-                   variable=full_automation).grid(row=1, column=1, pady=5)
+                   variable=full_automation).grid(row=2, column=1, pady=5)
 
     continue_var = tk.BooleanVar()
     continue_var.set(False)
 
     continue_button = tk.Button(
         root, text="Continue", command=on_continue_click)
-    continue_button.grid(row=4, column=1, pady=10)
+    continue_button.grid(row=5, column=1, pady=10)
+
+    # sleep_time_var = tk.StringVar()
+    # sleep_time_var.set("1")
+    # tk.Label(root, text="Sleep Time:").grid(
+    #     row=1, column=0)
+    # tk.Entry(root, textvariable=sleep_time_var).grid(row=1, column=1, padx=5)
+    sleep_time_var = tk.StringVar()
+    sleep_time_var.set("1")
+    tk.Label(root, text="Sleep Time:").grid(row=1, column=0, sticky="w")
+    tk.Entry(root, textvariable=sleep_time_var).grid(
+        row=1, column=1, padx=3, sticky="w")
 
     start_button = tk.Button(root, text="Start Script", command=lambda: start_main_thread(
-        initial_row, browser, copy_count, full_automation, start_button, continue_button))
+        initial_row, browser, copy_count, full_automation, start_button, continue_button, sleep_time_var))
 
-    start_button.grid(row=2, column=1, pady=10)
+    start_button.grid(row=3, column=1, pady=10)
 
     if not full_automation:
         continue_button.config(state="disabled")
-    # Create the text label
-    status_label = tk.Label(root, text="版权所有: @闲鱼: 巨糕冷")
 
-    # Place the label to the right of the start button
-    status_label.grid(row=6, column=1, pady=10)
+    author_label = tk.Label(root, text="版权所有: @闲鱼: 巨糕冷")
+    author_label.grid(row=6, column=1, pady=10)
     root.mainloop()
 
 
-def main(initial_row, browser, copy_count, full_automation):
+def main(initial_row, browser, copy_count, full_automation, sleep_time):
     file_path = file_path_var.get()
     sheet = read_excel_file(file_path)
     copied_codes = 0
     more_codes = True
+    # remainingCodes = read_first_column_excel(file_path)
 
     new_redeemed_codes = set()
     error = collections.defaultdict(set)
@@ -212,7 +222,7 @@ def main(initial_row, browser, copy_count, full_automation):
             input_box.send_keys(cell_value)
             submit_button.click()
 
-            time.sleep(1)
+            time.sleep(sleep_time)
             initial_row += 1
             copied_codes += 1
             lastOne = False
@@ -228,9 +238,6 @@ def main(initial_row, browser, copy_count, full_automation):
                         lastOne = True
                     # if (copied_codes % 10 == 0) or (not next_cell_value):
                     if (copied_codes % 10 == 0):
-                        # clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
-                        #     (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
-                        # clear_table_button.click()
                         redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
                             (By.CSS_SELECTOR, 'button[data-testid="button-redeem"]')))
                         redeem_button.click()
@@ -254,6 +261,7 @@ def main(initial_row, browser, copy_count, full_automation):
 
         for code_element, status_element in zip(code_elements, status_elements):
             status_text = status_element.text.strip()
+            # print(code_element.text.strip())
             if "This code has already been redeemed" in status_text:
                 redeemed_code = code_element.text.strip()
                 new_redeemed_codes.add(redeemed_code)
@@ -270,7 +278,6 @@ def main(initial_row, browser, copy_count, full_automation):
             clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
                 (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
             clear_table_button.click()
-    # return initial_row, copied_codes, more_codes, new_redeemed_codes
     return initial_row, copied_codes, more_codes, error
 
 
