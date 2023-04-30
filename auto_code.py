@@ -14,18 +14,30 @@ from selenium.common.exceptions import TimeoutException
 import tkinter.messagebox as messagebox
 import os
 import sys
+import csv
 
 continue_event = threading.Event()
+
+
+def read_first_column_csv(file_path):
+    first_column = set()
+    with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            if row:  # To handle empty rows
+                first_column.add(row[0])
+
+    return first_column
 
 
 def on_continue_click():
     continue_event.set()
 
 
-def read_excel_file(file_path):
-    workbook = load_workbook(file_path)
-    sheet = workbook.active
-    return sheet
+def read_csv_file(file_path):
+    with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
+        reader = csv.reader(csvfile)
+        return list(reader)
 
 
 def write_message_to_file(message):
@@ -185,11 +197,11 @@ def start_app():
 
 def main(initial_row, browser, copy_count, full_automation):
     file_path = file_path_var.get()
-    sheet = read_excel_file(file_path)
+    sheet = read_csv_file(file_path)
+    remainingCodes = read_first_column_csv(file_path)
     copied_codes = 0
     more_codes = True
 
-    new_redeemed_codes = set()
     error = collections.defaultdict(set)
 
     should_clear_table = False
@@ -256,11 +268,13 @@ def main(initial_row, browser, copy_count, full_automation):
             status_text = status_element.text.strip()
             if "This code has already been redeemed" in status_text:
                 redeemed_code = code_element.text.strip()
-                new_redeemed_codes.add(redeemed_code)
                 error["Redeemed"].add(redeemed_code)
             if "Invalid Code" in status_text:
                 redeemed_code = code_element.text.strip()
                 error["Invalid Code"].add(redeemed_code)
+            remainingCodes.remove(redeemed_code)
+
+        error["Miss"] = remainingCodes
 
         if lastOne == True:
             redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
