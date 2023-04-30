@@ -15,17 +15,19 @@ import tkinter.messagebox as messagebox
 import os
 import sys
 import csv
+import re
 
 continue_event = threading.Event()
 
 
 def read_first_column_csv(file_path):
-    first_column = set()
+    first_column = {}
     with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
         reader = csv.reader(csvfile)
         for row in reader:
             if row:  # To handle empty rows
-                first_column.add(row[0])
+                cleaned_text = re.sub(r'[^a-zA-Z0-9]+', '', row[0]).upper()
+                first_column[cleaned_text] = True
 
     return first_column
 
@@ -136,6 +138,10 @@ def run_main_thread(initial_row, browser, copy_count, full_automation):
         print("\nThe following codes have already been redeemed:")
         for code in merged_error_codes["Redeemed"]:
             print(code)
+    if len(merged_error_codes["Miss"]) > 0:
+        print("\nThe following codes have are missing:")
+        for code in merged_error_codes["Miss"]:
+            print(code)
 
 
 def select_file():
@@ -207,7 +213,7 @@ def main(initial_row, browser, copy_count, full_automation):
     should_clear_table = False
 
     while (full_automation.get() and more_codes) or (copied_codes < copy_count and more_codes):
-        cell_value = sheet.cell(row=initial_row, column=1).value
+        cell_value = sheet[initial_row][0]
 
         if not cell_value:
             print("You have copied all the codes.")
@@ -234,8 +240,7 @@ def main(initial_row, browser, copy_count, full_automation):
             #     clear_table_button.click()
             if full_automation.get():
                 try:
-                    next_cell_value = sheet.cell(
-                        row=initial_row, column=1).value
+                    next_cell_value = sheet[initial_row][0]
                     if not next_cell_value:
                         lastOne = True
                     # if (copied_codes % 10 == 0) or (not next_cell_value):
@@ -263,18 +268,20 @@ def main(initial_row, browser, copy_count, full_automation):
             By.CSS_SELECTOR, 'td.RedeemModule_tdCode__2V387')
         status_elements = browser.find_elements(
             By.CSS_SELECTOR, 'td.RedeemModule_tdLocalizedName__1VWAC')
-
+        
         for code_element, status_element in zip(code_elements, status_elements):
             status_text = status_element.text.strip()
+            redeemed_code = code_element.text.strip()
+            clean_redeemed_code = re.sub(r'[^a-zA-Z0-9]+', '', redeemed_code).upper()
             if "This code has already been redeemed" in status_text:
-                redeemed_code = code_element.text.strip()
                 error["Redeemed"].add(redeemed_code)
             if "Invalid Code" in status_text:
-                redeemed_code = code_element.text.strip()
                 error["Invalid Code"].add(redeemed_code)
-            remainingCodes.remove(redeemed_code)
-
-        error["Miss"] = remainingCodes
+            remainingCodes[clean_redeemed_code] = False
+            
+        for code in remainingCodes:
+            if remainingCodes[code] == True:
+                error["Miss"].add(code)
 
         if lastOne == True:
             redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
@@ -289,7 +296,7 @@ def main(initial_row, browser, copy_count, full_automation):
 
 
 if __name__ == "__main__":
-    initial_row = 1
+    initial_row = 0
     loop_finished = False
     copy_count = 10
 
