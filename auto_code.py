@@ -56,10 +56,12 @@ def on_close(root):
         root.destroy()
 
 
-def start_main_thread(initial_row, browser, copy_count, full_automation, start_button):
-    # Disable the button and change its color to grey
-    # start_button.config(state="disabled", bg="grey")
+def start_main_thread(initial_row, browser, copy_count, full_automation, start_button, continue_button):
+    # user click start：Disable the button and change its color to grey
     start_button.config(state="disabled")
+    # if in full automation mode, change continue button to grey so that users can not click
+    if full_automation.get():
+        continue_button.config(state="disabled")
     # Create and start the thread
     thread = threading.Thread(target=run_main_thread, args=(
         initial_row, browser, copy_count, full_automation))
@@ -162,16 +164,14 @@ def start_app():
     continue_var = tk.BooleanVar()
     continue_var.set(False)
 
-    # start_copying = threading.Event()
-    # tk.Button(root, text="Start Script", command=lambda: threading.Thread(target=run_main_thread, args=(
-    #     initial_row, browser, copy_count, full_automation)).start()).grid(row=2, column=1, pady=10)
-    start_button = tk.Button(root, text="Start Script", command=lambda: start_main_thread(
-        initial_row, browser, copy_count, full_automation, start_button))
-
-    start_button.grid(row=2, column=1, pady=10)
     continue_button = tk.Button(
         root, text="Continue", command=on_continue_click)
     continue_button.grid(row=4, column=1, pady=10)
+
+    start_button = tk.Button(root, text="Start Script", command=lambda: start_main_thread(
+        initial_row, browser, copy_count, full_automation, start_button, continue_button))
+
+    start_button.grid(row=2, column=1, pady=10)
 
     if not full_automation:
         continue_button.config(state="disabled")
@@ -188,7 +188,7 @@ def main(initial_row, browser, copy_count, full_automation):
     sheet = read_excel_file(file_path)
     copied_codes = 0
     more_codes = True
-    # new_redeemed_codes = []
+
     new_redeemed_codes = set()
     error = collections.defaultdict(set)
 
@@ -212,7 +212,7 @@ def main(initial_row, browser, copy_count, full_automation):
             input_box.send_keys(cell_value)
             submit_button.click()
 
-            time.sleep(3)
+            time.sleep(1)
             initial_row += 1
             copied_codes += 1
             lastOne = False
@@ -274,44 +274,6 @@ def main(initial_row, browser, copy_count, full_automation):
     return initial_row, copied_codes, more_codes, error
 
 
-# def main(initial_row, browser, copy_count, full_automation):
-#     file_path = file_path_var.get()
-#     sheet = read_excel_file(file_path)
-#     copied_codes = 0
-#     more_codes = True
-
-#     while (full_automation.get() and more_codes) or (copied_codes < copy_count and more_codes):
-#         cell_value = sheet.cell(row=initial_row, column=1).value
-
-#         if not cell_value:
-#             print("You have copied all the codes.")
-#             more_codes = False
-#             break
-
-#         try:
-#             input_box = WebDriverWait(browser, 10).until(
-#                 EC.presence_of_element_located((By.ID, "code")))
-#             submit_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
-#                 (By.CSS_SELECTOR, 'button[data-testid="verify-code-button"]')))
-
-#             input_box.send_keys(cell_value)
-#             submit_button.click()
-
-#             time.sleep(3)
-#             initial_row += 1
-#             copied_codes += 1
-
-#             if full_automation.get() and copied_codes % 10 == 0:
-#                 clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
-#                     (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
-#                 clear_table_button.click()
-
-#         except TimeoutException:
-#             print("Timed out waiting for the elements to load.")
-#             break
-
-#     return initial_row, copied_codes, more_codes
-
 if __name__ == "__main__":
     initial_row = 1
     loop_finished = False
@@ -335,5 +297,5 @@ if __name__ == "__main__":
         EC.presence_of_element_located((By.ID, "code")))
 
     start_app()
-
+    browser.quit()
     print("Exiting...")
