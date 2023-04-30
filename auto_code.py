@@ -14,18 +14,51 @@ from selenium.common.exceptions import TimeoutException
 import tkinter.messagebox as messagebox
 import os
 import sys
+import csv
+import re
+import pandas as pd
 
 continue_event = threading.Event()
-
-
-def on_continue_click():
-    continue_event.set()
 
 
 def read_excel_file(file_path):
     workbook = load_workbook(file_path)
     sheet = workbook.active
     return sheet
+
+
+def read_first_column_csv(file_path):
+    first_column = {}
+    with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            if row:  # To handle empty rows
+                cleaned_text = re.sub(r'[^a-zA-Z0-9]+', '', row[0]).upper()
+                first_column[cleaned_text] = True
+
+    return first_column
+
+
+def read_first_column_excel(file_path):
+    first_column = {}
+    df = pd.read_excel(file_path)
+    column_values = df.iloc[:, 0].dropna().values
+
+    for value in column_values:
+        cleaned_text = re.sub(r'[^a-zA-Z0-9]+', '', str(value)).upper()
+        first_column[cleaned_text] = True
+
+    return first_column
+
+
+def on_continue_click():
+    continue_event.set()
+
+
+def read_csv_file(file_path):
+    with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
+        reader = csv.reader(csvfile)
+        return list(reader)
 
 
 def write_message_to_file(message):
@@ -38,14 +71,19 @@ def show_popup_message(merged_error_codes):
 
     if len(merged_error_codes) == 0:
         message = "\nNo issues found."
+    else:
+        message += "\nIssues found. More info checked the code_status file, located in the same directory of the program."
+        if len(merged_error_codes["Invalid Code"]) > 0:
+            message += "\nThe following codes are invalid:\n"
+            message += "\n".join(merged_error_codes["Invalid Code"])
 
-    if len(merged_error_codes["Invalid Code"]) > 0:
-        message += "\nThe following codes are invalid:\n"
-        message += "\n".join(merged_error_codes["Invalid Code"])
+        if len(merged_error_codes["Redeemed"]) > 0:
+            message += "\nThe following codes have already been redeemed:\n"
+            message += "\n".join(merged_error_codes["Redeemed"])
 
-    if len(merged_error_codes["Redeemed"]) > 0:
-        message += "\nThe following codes have already been redeemed:\n"
-        message += "\n".join(merged_error_codes["Redeemed"])
+        if len(merged_error_codes["Miss"]) > 0:
+            message += "\nThe following codes are missing from automation. Please add manually:\n"
+            message += "\n".join(merged_error_codes["Miss"])
 
     write_message_to_file(message)
     messagebox.showinfo("Code Status", message)
@@ -58,6 +96,10 @@ def on_close(root):
 
 def start_main_thread(initial_row, browser, copy_count, full_automation, start_button, continue_button, sleep_time_var):
     # user click start：Disable the button and change its color to grey
+    if not file_path_var.get():
+        messagebox.showwarning(
+            "Warning", "No files loaded. Please select a file before starting.")
+        return
     start_button.config(state="disabled")
     sleep_time = float(sleep_time_var.get())
     # if in full automation mode, change continue button to grey so that users can not click
@@ -86,10 +128,12 @@ def run_main_thread(initial_row, browser, copy_count, full_automation, sleep_tim
     # redeemed_codes = set()
     merged_error_codes = collections.defaultdict(set)
     more_codes = True
+    file_path = file_path_var.get()
+    remainingCodes = read_first_column_excel(file_path)
     if full_automation.get():
         while True:
             initial_row, copied_codes, more_codes, error_codes = main(
-                initial_row, browser, copy_count, full_automation, sleep_time)
+                initial_row, browser, copy_count, full_automation, sleep_time, remainingCodes)
             for key in set(merged_error_codes.keys()) | set(error_codes.keys()):
                 merged_error_codes[key] = merged_error_codes[key] | error_codes[key]
             if not more_codes:
@@ -104,7 +148,7 @@ def run_main_thread(initial_row, browser, copy_count, full_automation, sleep_tim
                 continue_event.clear()
 
             initial_row, copied_codes, more_codes, error_codes = main(
-                initial_row, browser, 10, full_automation, sleep_time)
+                initial_row, browser, 10, full_automation, sleep_time, remainingCodes)
             for key in set(merged_error_codes.keys()) | set(error_codes.keys()):
                 merged_error_codes[key] = merged_error_codes[key] | error_codes[key]
 
@@ -112,7 +156,10 @@ def run_main_thread(initial_row, browser, copy_count, full_automation, sleep_tim
                 break
 
             first_group = False
-
+    # handle missed codes
+    for code in remainingCodes:
+        if remainingCodes[code] == True:
+            merged_error_codes["Miss"].add(code)
     show_popup_message(merged_error_codes)
     if len(merged_error_codes) == 0:
         print("\n No issuse found.")
@@ -124,6 +171,10 @@ def run_main_thread(initial_row, browser, copy_count, full_automation, sleep_tim
     if len(merged_error_codes["Redeemed"]) > 0:
         print("\nThe following codes have already been redeemed:")
         for code in merged_error_codes["Redeemed"]:
+            print(code)
+    if len(merged_error_codes["Miss"]) > 0:
+        print("\nThe following codes are missing from automation. Please add manually:")
+        for code in merged_error_codes["Miss"]:
             print(code)
 
 
@@ -168,11 +219,6 @@ def start_app():
         root, text="Continue", command=on_continue_click)
     continue_button.grid(row=5, column=1, pady=10)
 
-    # sleep_time_var = tk.StringVar()
-    # sleep_time_var.set("1")
-    # tk.Label(root, text="Sleep Time:").grid(
-    #     row=1, column=0)
-    # tk.Entry(root, textvariable=sleep_time_var).grid(row=1, column=1, padx=5)
     sleep_time_var = tk.StringVar()
     sleep_time_var.set("1")
     tk.Label(root, text="Sleep Time:").grid(row=1, column=0, sticky="w")
@@ -192,21 +238,22 @@ def start_app():
     root.mainloop()
 
 
-def main(initial_row, browser, copy_count, full_automation, sleep_time):
+def main(initial_row, browser, copy_count, full_automation, sleep_time, remainingCodes):
     file_path = file_path_var.get()
     sheet = read_excel_file(file_path)
+    # sheet = read_csv_file(file_path)
+    #remainingCodes = read_first_column_csv(file_path)
     copied_codes = 0
     more_codes = True
     # remainingCodes = read_first_column_excel(file_path)
-
     new_redeemed_codes = set()
     error = collections.defaultdict(set)
 
     should_clear_table = False
 
     while (full_automation.get() and more_codes) or (copied_codes < copy_count and more_codes):
+        #cell_value = sheet[initial_row][0]
         cell_value = sheet.cell(row=initial_row, column=1).value
-
         if not cell_value:
             print("You have copied all the codes.")
             more_codes = False
@@ -226,12 +273,9 @@ def main(initial_row, browser, copy_count, full_automation, sleep_time):
             initial_row += 1
             copied_codes += 1
             lastOne = False
-            # if full_automation.get() and (copied_codes % 10 == 0 or not sheet.cell(row=initial_row+1, column=1).value):
-            #     clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
-            #         (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
-            #     clear_table_button.click()
             if full_automation.get():
                 try:
+                    # next_cell_value = sheet[initial_row][0]
                     next_cell_value = sheet.cell(
                         row=initial_row, column=1).value
                     if not next_cell_value:
@@ -262,13 +306,18 @@ def main(initial_row, browser, copy_count, full_automation, sleep_time):
         for code_element, status_element in zip(code_elements, status_elements):
             status_text = status_element.text.strip()
             # print(code_element.text.strip())
+            redeemed_code = code_element.text.strip()
+            clean_redeemed_code = re.sub(
+                r'[^a-zA-Z0-9]+', '', redeemed_code).upper()
             if "This code has already been redeemed" in status_text:
-                redeemed_code = code_element.text.strip()
-                new_redeemed_codes.add(redeemed_code)
                 error["Redeemed"].add(redeemed_code)
             if "Invalid Code" in status_text:
-                redeemed_code = code_element.text.strip()
                 error["Invalid Code"].add(redeemed_code)
+            remainingCodes[clean_redeemed_code] = False
+            # brutally test missing code
+            # if clean_redeemed_code == '9TLKVRXZBDHNV':
+            #     remainingCodes[clean_redeemed_code] = True
+            # print(clean_redeemed_code, remainingCodes)
 
         if lastOne == True:
             redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
@@ -282,6 +331,7 @@ def main(initial_row, browser, copy_count, full_automation, sleep_time):
 
 
 if __name__ == "__main__":
+    # initial_row = 0
     initial_row = 1
     loop_finished = False
     copy_count = 10

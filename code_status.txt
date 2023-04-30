@@ -1,2 +1,17 @@
 
-No issues found.
+Issues found. More info checked the code_status file, located in the same directory of the program.
+The following codes have already been redeemed:
+9TLKVRXZBDHNV
+7JCNKCBYCLNVH
+YNVM2RVMRJMTW
+4BHRYVYM7G4CW
+M7PY6LT4C7JT9
+NKTPNCKV6DX9Y
+WQWY6VJVG7X69
+2LP9MCMDPGV9Q
+Z4X9WBK4T42NX
+2WLJQN2JD9KPJ
+JYGDYWC76VR29
+9CRRK29PKGKLP
+The following codes are missing from automation. Please add manually:
+9TLKVRXZBDHNV
