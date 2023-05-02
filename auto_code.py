@@ -17,6 +17,7 @@ import sys
 import csv
 import re
 import pandas as pd
+from fake_useragent import UserAgent
 
 continue_event = threading.Event()
 
@@ -282,10 +283,11 @@ def main(initial_row, browser, copy_count, full_automation, sleep_time, remainin
                         lastOne = True
                     # if (copied_codes % 10 == 0) or (not next_cell_value):
                     if (copied_codes % 10 == 0):
-                        redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
-                            (By.CSS_SELECTOR, 'button[data-testid="button-redeem"]')))
-                        redeem_button.click()
-                        time.sleep(2)
+                        # for self test
+                        # redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
+                        #     (By.CSS_SELECTOR, 'button[data-testid="button-redeem"]')))
+                        # redeem_button.click()
+                        time.sleep(3)
                         clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
                             (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
                         clear_table_button.click()
@@ -317,12 +319,16 @@ def main(initial_row, browser, copy_count, full_automation, sleep_time, remainin
             # brutally test missing code
             # if clean_redeemed_code == '9TLKVRXZBDHNV':
             #     remainingCodes[clean_redeemed_code] = True
-            # print(clean_redeemed_code, remainingCodes)
+            print('===================')
+            print(clean_redeemed_code)
+            print(remainingCodes)
+            print(code_element)
+            print(status_element)
 
         if lastOne == True:
-            redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
-                (By.CSS_SELECTOR, 'button[data-testid="button-redeem"]')))
-            redeem_button.click()
+            # redeem_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
+            #     (By.CSS_SELECTOR, 'button[data-testid="button-redeem"]')))
+            # redeem_button.click()
             time.sleep(2)
             clear_table_button = WebDriverWait(browser, 10).until(EC.presence_of_element_located(
                 (By.CSS_SELECTOR, 'button[data-testid="button-clear-table"]')))
@@ -337,12 +343,17 @@ if __name__ == "__main__":
     copy_count = 10
 
     chrome_options = Options()
+    ua = UserAgent()
+    user_agent = ua.random
+
+    # Add the user agent argument to Chrome options
+    chrome_options.add_argument(f'user-agent={user_agent}')
     chrome_options.add_argument('--disable-extensions')
     chrome_options.add_argument('--disable-gpu')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument(
-        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36')
+    # chrome_options.add_argument(
+    #     '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36')
 
     browser = webdriver.Chrome(options=chrome_options)
 
